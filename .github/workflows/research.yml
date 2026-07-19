@@ -1,0 +1,45 @@
+name: Riset varian strategi
+
+# Uji 16 varian strategi (BE-stop, sesi, sell-only, TP tetap) dengan
+# validasi in-sample/out-of-sample -> docs/data/research.json.
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Berapa hari data historis"
+        required: false
+        default: "730"
+  push:
+    paths: [".github/workflows/research.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: research
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Jalankan riset varian
+        env:
+          RESEARCH_DAYS: ${{ github.event.inputs.days || '730' }}
+        run: python -m bot.research
+
+      - name: Commit hasil
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/data/research.json
+          git commit -m "data: hasil riset varian strategi [skip ci]"
+          git pull --rebase origin ${{ github.ref_name }}
+          git push origin HEAD:${{ github.ref_name }}
