@@ -13,6 +13,8 @@ Asumsi eksekusi (konservatif):
   - Biaya 0.01% per sisi (~spread XAUUSD ritel).
   - Satu posisi pada satu waktu (meniru trader manual).
   - Timeout: posisi ditutup paksa di close setelah max_hold_bars.
+  - Opsi be_at_r: SL digeser ke breakeven setelah profit mengambang +xR
+    (berlaku mulai bar berikutnya — meniru cut-loss manual disiplin).
 """
 
 from __future__ import annotations
@@ -31,42 +33,26 @@ ENTRY_WINDOW = 80         # bar entry-TF yang dipakai detektor sinyal
 OUT_PATH = os.path.join("docs", "data", "backtest.json")
 
 
-def run(days=365, params=None):
-    p = dict(DEFAULT_PARAMS)
-    p.update(params or {})
+def simulate(m5, params, diag=None):
+    """Jalankan simulasi di data 5m yang sudah di-fetch. Return list trade."""
+    p = params
     entry_tf = p["entry_tf"]
     step = TF_MS[entry_tf]
 
-    print(f"Mengambil riwayat {entry_tf} {days + WARMUP_DAYS} hari ({SYMBOL})...")
-    m5 = fetch_history(entry_tf, days + WARMUP_DAYS)
-    if len(m5) < 5000:
-        raise RuntimeError(f"Data terlalu sedikit: {len(m5)} bar")
-    print(f"  {len(m5)} bar {entry_tf} ({time.strftime('%Y-%m-%d', time.gmtime(m5[0]['t']/1000))}"
-          f" .. {time.strftime('%Y-%m-%d', time.gmtime(m5[-1]['t']/1000))})")
-
-    # Bangun TF lain dari 5m (anti-lookahead: pakai pointer bar yang sudah close)
     hts = {tf: resample(m5, entry_tf, tf) for tf in ("15m", "30m", "1h", "4h", "1d")}
     ptr = {tf: 0 for tf in hts}
-
     start_ms = m5[0]["t"] + WARMUP_DAYS * 86_400_000
+
     zones = None
     atr15 = None
     bias = {"dir": 0, "mode": "handgun", "strength": 0,
             "detail": {"d1": 0, "h4": 0, "h1": 0}}
-
-    equity = 1000.0
-    peak = equity
-    max_dd = 0.0
-    curve = []
     trades = []
     open_tr = None
-    signals_seen = 0
-    diag = {}
 
     for i, bar in enumerate(m5):
         cur_end = bar["t"] + step
 
-        # majukan pointer bar HTF yang sudah close; recompute saat bar baru
         new15 = False
         for tf, series in hts.items():
             dst = TF_MS[tf]
@@ -97,59 +83,89 @@ def run(days=365, params=None):
             exited = None
             if t["side"] == "sell":
                 if bar["h"] >= t["sl"]:
-                    exited = (t["sl"], "sl")
+                    exited = (t["sl"], "be" if t.get("be_moved") else "sl")
                 elif bar["l"] <= t["tp"]:
                     exited = (t["tp"], "tp")
             else:
                 if bar["l"] <= t["sl"]:
-                    exited = (t["sl"], "sl")
+                    exited = (t["sl"], "be" if t.get("be_moved") else "sl")
                 elif bar["h"] >= t["tp"]:
                     exited = (t["tp"], "tp")
             if exited is None and i - t["i"] >= p["max_hold_bars"]:
                 exited = (bar["c"], "timeout")
+            if exited is None and p["be_at_r"] is not None and not t.get("be_moved"):
+                # profit mengambang cukup? geser SL ke breakeven (mulai bar depan)
+                trig = (t["entry"] - p["be_at_r"] * t["risk"] if t["side"] == "sell"
+                        else t["entry"] + p["be_at_r"] * t["risk"])
+                hit = bar["l"] <= trig if t["side"] == "sell" else bar["h"] >= trig
+                if hit:
+                    t["sl"] = t["entry"]
+                    t["be_moved"] = True
             if exited is not None:
                 px, why = exited
                 gross = (t["entry"] - px) if t["side"] == "sell" else (px - t["entry"])
                 cost = t["entry"] * p["cost_pct_side"] * 2
-                r_net = (gross - cost) / t["risk"]
-                equity *= 1 + p["risk_pct"] / 100.0 * r_net
-                peak = max(peak, equity)
-                max_dd = max(max_dd, (peak - equity) / peak)
                 t.update(exit=px, exit_time=cur_end, result=why,
-                         r_net=round(r_net, 3))
+                         r_net=round((gross - cost) / t["risk"], 3))
                 trades.append(t)
-                curve.append((cur_end, round(equity, 2)))
                 open_tr = None
             continue  # fokus satu posisi; tidak cari sinyal saat floating
 
-        # cari sinyal baru
         if bar["t"] < start_ms or zones is None or atr15 is None:
             continue
         window = m5[max(0, i - ENTRY_WINDOW + 1):i + 1]
         sig = detect_signal(window, zones, bias, atr15, p, diag=diag)
         if sig is None:
             continue
-        signals_seen += 1
         open_tr = {
             "i": i, "time": bar["t"] + step, "side": sig["side"],
             "mode": sig["mode"], "entry": sig["entry"], "sl": sig["sl"],
             "tp": sig["tp"], "risk": sig["risk"], "rr": sig["rr"],
         }
+    return trades
 
-    # ------------------------------------------------------------- statistik
-    def stats_for(sel):
-        n = len(sel)
-        wins = [t for t in sel if t["r_net"] > 0]
-        losses = [t for t in sel if t["r_net"] <= 0]
-        gp = sum(t["r_net"] for t in wins)
-        gl = -sum(t["r_net"] for t in losses)
-        return {
-            "trades": n,
-            "win_rate": round(100.0 * len(wins) / n, 1) if n else 0.0,
-            "profit_factor": round(gp / gl, 2) if gl > 0 else None,
-            "total_r": round(sum(t["r_net"] for t in sel), 1),
-            "avg_r": round(sum(t["r_net"] for t in sel) / n, 3) if n else 0.0,
-        }
+
+def stats_for(sel):
+    n = len(sel)
+    wins = [t for t in sel if t["r_net"] > 0]
+    losses = [t for t in sel if t["r_net"] <= 0]
+    gp = sum(t["r_net"] for t in wins)
+    gl = -sum(t["r_net"] for t in losses)
+    return {
+        "trades": n,
+        "win_rate": round(100.0 * len(wins) / n, 1) if n else 0.0,
+        "profit_factor": round(gp / gl, 2) if gl > 0 else None,
+        "total_r": round(sum(t["r_net"] for t in sel), 1),
+        "avg_r": round(sum(t["r_net"] for t in sel) / n, 3) if n else 0.0,
+    }
+
+
+def equity_metrics(trades, risk_pct):
+    equity, peak, max_dd = 1000.0, 1000.0, 0.0
+    curve = []
+    for t in trades:
+        equity *= 1 + risk_pct / 100.0 * t["r_net"]
+        peak = max(peak, equity)
+        max_dd = max(max_dd, (peak - equity) / peak)
+        curve.append((t["exit_time"], round(equity, 2)))
+    return equity, max_dd, curve
+
+
+def run(days=365, params=None):
+    p = dict(DEFAULT_PARAMS)
+    p.update(params or {})
+
+    print(f"Mengambil riwayat {p['entry_tf']} {days + WARMUP_DAYS} hari ({SYMBOL})...")
+    m5 = fetch_history(p["entry_tf"], days + WARMUP_DAYS)
+    if len(m5) < 5000:
+        raise RuntimeError(f"Data terlalu sedikit: {len(m5)} bar")
+    print(f"  {len(m5)} bar {p['entry_tf']} "
+          f"({time.strftime('%Y-%m-%d', time.gmtime(m5[0]['t']/1000))}"
+          f" .. {time.strftime('%Y-%m-%d', time.gmtime(m5[-1]['t']/1000))})")
+
+    diag = {}
+    trades = simulate(m5, p, diag=diag)
+    equity, max_dd, curve = equity_metrics(trades, p["risk_pct"])
 
     monthly = {}
     for t in trades:
@@ -164,7 +180,7 @@ def run(days=365, params=None):
         "generated_at": int(time.time() * 1000),
         "symbol": SYMBOL,
         "proxy_note": "PAXG/USDT dipakai sebagai proxy XAU/USD (1 PAXG = 1 oz emas)",
-        "entry_tf": entry_tf,
+        "entry_tf": p["entry_tf"],
         "days": days,
         "period": {"from": m5[0]["t"] + WARMUP_DAYS * 86_400_000, "to": m5[-1]["t"]},
         "assumptions": {
@@ -179,14 +195,14 @@ def run(days=365, params=None):
             "end_equity": round(equity, 2),
             "return_pct": round((equity / 1000.0 - 1) * 100, 1),
             "max_drawdown_pct": round(max_dd * 100, 1),
-            "signals_seen": signals_seen,
+            "signals_seen": len(trades),
         },
         "by_mode": {m: stats_for([t for t in trades if t["mode"] == m])
                     for m in ("sniper", "handgun")},
         "by_side": {s: stats_for([t for t in trades if t["side"] == s])
                     for s in ("buy", "sell")},
         "by_exit": {w: sum(1 for t in trades if t["result"] == w)
-                    for w in ("tp", "sl", "timeout")},
+                    for w in ("tp", "sl", "be", "timeout")},
         "diagnostics": diag,
         "monthly": [{"month": k, **v} for k, v in sorted(monthly.items())],
         "equity_curve": [{"t": t, "eq": e} for t, e in curve[::ds]],
@@ -203,7 +219,7 @@ def run(days=365, params=None):
 
     s = result["stats"]
     print("\n=== HASIL BACKTEST ===")
-    print(f"Periode      : {days} hari, entry TF {entry_tf}")
+    print(f"Periode      : {days} hari, entry TF {p['entry_tf']}")
     print(f"Jumlah trade : {s['trades']} (win rate {s['win_rate']}%)")
     print(f"Profit factor: {s['profit_factor']}")
     print(f"Total R      : {s['total_r']}R  (avg {s['avg_r']}R/trade)")

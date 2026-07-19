@@ -60,6 +60,11 @@ DEFAULT_PARAMS = {
     "max_cost_frac": 0.2,     # skip bila biaya round-trip > 20% risiko
     "risk_pct": 1.0,          # % ekuitas dirisikokan per trade (backtest)
     "cost_pct_side": 0.0001,  # biaya 0.01% per sisi (~spread XAUUSD)
+    # --- varian (hasil riset in-sample/out-of-sample) ---
+    "sides": "both",          # "both" | "sell" | "buy"
+    "session_utc": None,      # None=24 jam, atau (mulai, akhir) jam UTC entry
+    "tp_mode": "zone",        # "zone"=S/R terdekat | "fixed"=fallback_rr tetap
+    "be_at_r": None,          # None, atau +xR: SL digeser ke breakeven
 }
 
 
@@ -257,6 +262,11 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS,
     c0 = entry_candles[-1]              # candle trigger (baru close)
     if not is_xau_market_open(c0["t"]):
         return None                     # market XAU tutup (akhir pekan)
+    if params["session_utc"] is not None:
+        s, e = params["session_utc"]
+        hod = (c0["t"] // 3_600_000) % 24
+        if not (s <= hod < e):
+            return None                 # di luar sesi trading yang dipilih
     fake_win = entry_candles[-3:]       # jendela dorongan terakhir (3 candle)
     box = entry_candles[-(params["box_lookback"] + 3):-3]
     box_hi = max(c["h"] for c in box)
@@ -264,6 +274,8 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS,
     box_ok = (box_hi - box_lo) <= params["box_max_atr"] * a
 
     for side in ("sell", "buy"):
+        if params["sides"] != "both" and side != params["sides"]:
+            continue
         # --- arah harus sesuai bias (sniper) atau netral (handgun)
         if bias["dir"] == 1 and side == "sell":
             continue
@@ -347,8 +359,8 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS,
         bump("risk_ok")
 
         tp = None
-        tgt_side = "below" if side == "sell" else "above"
-        tgt_zones = zones["sup"] if side == "sell" else zones["res"]
+        tgt_zones = [] if params["tp_mode"] == "fixed" else (
+            zones["sup"] if side == "sell" else zones["res"])
         cands = []
         for z in tgt_zones:
             d = (entry - z["hi"]) if side == "sell" else (z["lo"] - entry)
