@@ -61,6 +61,7 @@ def run(days=365, params=None):
     trades = []
     open_tr = None
     signals_seen = 0
+    diag = {}
 
     for i, bar in enumerate(m5):
         cur_end = bar["t"] + step
@@ -125,7 +126,7 @@ def run(days=365, params=None):
         if bar["t"] < start_ms or zones is None or atr15 is None:
             continue
         window = m5[max(0, i - ENTRY_WINDOW + 1):i + 1]
-        sig = detect_signal(window, zones, bias, atr15, p)
+        sig = detect_signal(window, zones, bias, atr15, p, diag=diag)
         if sig is None:
             continue
         signals_seen += 1
@@ -186,6 +187,7 @@ def run(days=365, params=None):
                     for s in ("buy", "sell")},
         "by_exit": {w: sum(1 for t in trades if t["result"] == w)
                     for w in ("tp", "sl", "timeout")},
+        "diagnostics": diag,
         "monthly": [{"month": k, **v} for k, v in sorted(monthly.items())],
         "equity_curve": [{"t": t, "eq": e} for t, e in curve[::ds]],
         "trades": [
@@ -210,6 +212,7 @@ def run(days=365, params=None):
     print(f"Exit         : {result['by_exit']}")
     print(f"Mode         : sniper={result['by_mode']['sniper']['trades']} trade, "
           f"handgun={result['by_mode']['handgun']['trades']} trade")
+    print(f"Diagnostik   : {diag}")
     print(f"JSON         : {OUT_PATH}")
     return result
 

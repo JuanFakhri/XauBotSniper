@@ -214,13 +214,18 @@ def _prominent_wick_level(candles, side, atr_val, params, ref):
     return best
 
 
-def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS):
+def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS,
+                  diag=None):
     """Evaluasi candle entry-TF terakhir yang SUDAH close.
 
     Mengembalikan dict sinyal (side, mode, entry, sl, tp, rr, checklist)
-    atau None bila tidak ada setup. Juga dipakai UI untuk menampilkan
-    checklist parsial (lihat field 'checklist').
+    atau None bila tidak ada setup. Bila `diag` (dict) diberikan, counter
+    per-kondisi ditambahkan ke dalamnya (untuk tuning/diagnostik backtest).
     """
+    def bump(key):
+        if diag is not None:
+            diag[key] = diag.get(key, 0) + 1
+
     need = max(params["box_lookback"] + 3, params["atr_period"] + 2,
                params["sweep_lookback"] + 2)
     if len(entry_candles) < need:
@@ -228,6 +233,7 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS):
     a = atr(entry_candles, params["atr_period"])
     if not a or a <= 0 or not atr15:
         return None
+    bump("bars")
 
     c0 = entry_candles[-1]              # candle trigger (baru close)
     c1 = entry_candles[-2]
@@ -260,6 +266,14 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS):
             rng = pc["h"] - pc["l"]
             wick_ok = rng > 0 and (min(pc["o"], pc["c"]) - pc["l"]) >= params["wick_frac"] * rng
 
+        if box_ok:
+            bump("box")
+            if poked:
+                bump("poke")
+                if closed_back:
+                    bump("closed_back")
+                    if wick_ok:
+                        bump("wick")
         trigger_ok = box_ok and poked and closed_back and wick_ok
         if not trigger_ok:
             continue
@@ -272,6 +286,7 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS):
                 continue  # masih ada jarum di atas yang belum ditembus
             if side == "buy" and fake_ext > wick_lvl + 0.02 * a:
                 continue
+        bump("sweep")
 
         # --- harus terjadi di dekat zona S/R 15m/30m
         near = params["zone_near_atr"] * atr15
@@ -285,6 +300,7 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS):
             if zsup is None and not any(z["lo"] - near <= fake_ext <= z["hi"] + near
                                         for z in zones["sup"]):
                 continue
+        bump("zone")
 
         # --- handgun: hanya fade di tepi range yang cukup lebar
         if mode == "handgun":
@@ -292,6 +308,7 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS):
                                "below" if side == "sell" else "above")
             if opp is None or opp[0] < params["range_min_atr"] * atr15:
                 continue
+        bump("mode_ok")
 
         # --- level entry / SL / TP (risiko terukur)
         entry = c0["c"]
@@ -303,6 +320,7 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS):
             risk = entry - sl
         if risk < params["min_risk_atr"] * a or risk > params["max_risk_atr"] * a:
             continue
+        bump("risk_ok")
 
         tp = None
         tgt_side = "below" if side == "sell" else "above"
