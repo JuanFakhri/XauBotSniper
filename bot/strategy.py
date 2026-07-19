@@ -61,7 +61,7 @@ DEFAULT_PARAMS = {
     "risk_pct": 1.0,          # % ekuitas dirisikokan per trade (backtest)
     "cost_pct_side": 0.0001,  # biaya 0.01% per sisi (~spread XAUUSD)
     # --- varian (hasil riset in-sample/out-of-sample) ---
-    "sides": "both",          # "both" | "sell" | "buy"
+    "sides": "sell",          # hasil riset: sisi BUY rugi di kedua paruh data
     "session_utc": None,      # None=24 jam, atau (mulai, akhir) jam UTC entry
     "tp_mode": "zone",        # "zone"=S/R terdekat | "fixed"=fallback_rr tetap
     "be_at_r": None,          # None, atau +xR: SL digeser ke breakeven

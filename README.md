@@ -55,6 +55,14 @@ docs/              # dashboard GitHub Pages (engine yang sama, port JS)
 .github/workflows/ # backtest mingguan + scan per jam
 ```
 
+## Riset varian (anti-overfit)
+
+`bot/research.py` menguji 16 varian (BE-stop, filter sesi, sell-only, TP tetap)
+dengan validasi in-sample/out-of-sample. Temuan di 730 hari data: sisi BUY
+mekanis rugi di kedua paruh data, jadi default bot **sell-only** (`sides` di
+`bot/strategy.py`). Workflow **"Riset varian strategi"** bisa dijalankan ulang
+kapan saja dari tab Actions.
+
 Backtest: entry di close candle trigger, SL & TP di bar yang sama dihitung SL
 (konservatif), biaya 0.01%/sisi, risiko 1% ekuitas per trade, satu posisi pada
 satu waktu.

@@ -28,6 +28,9 @@ const P = {
   fallback_rr: 1.5,
   max_cost_frac: 0.2,
   cost_pct_side: 0.0001,
+  // hasil riset IS/OOS 730 hari: sisi BUY rugi konsisten -> default sell-only
+  sides: "sell",
+  session_utc: null,
 };
 
 /* Jam market XAU/USD: ~Minggu 22:00 UTC s/d Jumat 21:00 UTC. */
@@ -184,6 +187,10 @@ function detectSignal(entry, zones, bias, atr15, diag) {
 
   const c0 = entry[entry.length - 1];
   if (!isXauMarketOpen(c0.t)) return { signal: null, diag: D };
+  if (P.session_utc) {
+    const hod = Math.floor(c0.t / 36e5) % 24;
+    if (!(P.session_utc[0] <= hod && hod < P.session_utc[1])) return { signal: null, diag: D };
+  }
   const fakeWin = entry.slice(-3);
   const box = entry.slice(-(P.box_lookback + 3), -3);
   const boxHi = Math.max(...box.map((c) => c.h));
@@ -192,6 +199,7 @@ function detectSignal(entry, zones, bias, atr15, diag) {
   D.boxOk = boxHi - boxLo <= P.box_max_atr * a;
 
   for (const side of ["sell", "buy"]) {
+    if (P.sides !== "both" && side !== P.sides) continue;
     if (bias.dir === 1 && side === "sell") continue;
     if (bias.dir === -1 && side === "buy") continue;
     const mode = bias.dir !== 0 ? "sniper" : "handgun";
@@ -417,11 +425,13 @@ function render() {
       $(el).className = cls;
     }
     const b = state.bias;
-    $("bias-summary").textContent =
-      b.dir === 0
-        ? "Market RANGING (TF besar tidak selaras) → mode HANDGUN: fade tepi range 15m."
-        : `Tren besar ${b.dir === 1 ? "NAIK — fokus cari BUY" : "TURUN — fokus cari SELL"} ` +
-          `(${b.strength}/3 TF selaras) → mode SNIPER.`;
+    let btxt = b.dir === 0
+      ? "Market RANGING (TF besar tidak selaras) → mode HANDGUN: fade tepi range 15m."
+      : `Tren besar ${b.dir === 1 ? "NAIK" : "TURUN — fokus cari SELL"} ` +
+        `(${b.strength}/3 TF selaras) → mode SNIPER.`;
+    if (P.sides === "sell" && b.dir === 1)
+      btxt += " Bot default hanya SELL (riset 730 hari: BUY mekanis rugi) → menunggu.";
+    $("bias-summary").textContent = btxt;
   }
 
   // zona

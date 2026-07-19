@@ -164,6 +164,13 @@
     entry di 1m–15m searah tren. <b>Handgun</b> dipakai saat market ranging (TF besar
     netral): fade di tepi range — sell di resistance, buy di support — dengan syarat
     range cukup lebar (≥ 2.5×ATR15).</p>
+    <h3>Konfigurasi hasil riset (validasi in-sample/out-of-sample)</h3>
+    <p>16 varian strategi diuji di 730 hari data riil, dinilai terpisah di paruh
+    pertama dan kedua data. Temuan: sisi <b>BUY mekanis rugi di kedua paruh</b>,
+    stop-breakeven memperburuk hasil, dan TP zona lebih baik dari TP tetap.
+    Karena itu bot default <b>hanya mengambil sinyal SELL</b> (fade dorongan
+    terakhir di resistance). Ubah <code>sides</code> di parameter bila ingin
+    dua arah. Hasil lengkap: <code>docs/data/research.json</code>.</p>
     <h3>Risk management (risiko terukur)</h3>
     <ul>
       <li><b>Stop loss</b> di atas/bawah titik false break + buffer 0.25×ATR.
