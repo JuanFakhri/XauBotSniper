@@ -8,9 +8,9 @@
 const P = {
   atr_period: 14,
   box_lookback: 10,
-  box_max_atr: 1.6,
+  box_max_atr: 2.0,
   poke_min_atr: 0.05,
-  wick_frac: 0.45,
+  wick_frac: 0.35,
   sweep_lookback: 36,
   wick_prominence_atr: 0.5,
   ema_period: 50,
@@ -18,11 +18,11 @@ const P = {
   zone_k: 3,
   zone_lookback: 240,
   zone_tol_pct: 0.0012,
-  zone_near_atr: 0.9,
-  range_min_atr: 2.5,
+  zone_near_atr: 1.2,
+  range_min_atr: 2.0,
   sl_buf_atr: 0.25,
   min_risk_atr: 0.3,
-  max_risk_atr: 2.0,
+  max_risk_atr: 2.5,
   min_rr: 1.0,
   max_rr: 4.0,
   fallback_rr: 1.5,
@@ -170,8 +170,8 @@ function detectSignal(entry, zones, bias, atr15, diag) {
   if (!a || a <= 0 || !atr15) return { signal: null, diag: D };
 
   const c0 = entry[entry.length - 1];
-  const c1 = entry[entry.length - 2];
-  const box = entry.slice(-(P.box_lookback + 2), -2);
+  const fakeWin = entry.slice(-3);
+  const box = entry.slice(-(P.box_lookback + 3), -3);
   const boxHi = Math.max(...box.map((c) => c.h));
   const boxLo = Math.min(...box.map((c) => c.l));
   D.boxHi = boxHi; D.boxLo = boxLo;
@@ -184,17 +184,17 @@ function detectSignal(entry, zones, bias, atr15, diag) {
     const poke = P.poke_min_atr * a;
     let fakeExt, poked, closedBack, wickOk;
     if (side === "sell") {
-      fakeExt = Math.max(c0.h, c1.h);
+      fakeExt = Math.max(...fakeWin.map((c) => c.h));
       poked = fakeExt > boxHi + poke;
       closedBack = c0.c < boxHi && c0.c < c0.o;
-      const pc = c0.h >= c1.h ? c0 : c1;
+      const pc = fakeWin.reduce((a, b) => (b.h >= a.h ? b : a));
       const rng = pc.h - pc.l;
       wickOk = rng > 0 && pc.h - Math.max(pc.o, pc.c) >= P.wick_frac * rng;
     } else {
-      fakeExt = Math.min(c0.l, c1.l);
+      fakeExt = Math.min(...fakeWin.map((c) => c.l));
       poked = fakeExt < boxLo - poke;
       closedBack = c0.c > boxLo && c0.c > c0.o;
-      const pc = c0.l <= c1.l ? c0 : c1;
+      const pc = fakeWin.reduce((a, b) => (b.l <= a.l ? b : a));
       const rng = pc.h - pc.l;
       wickOk = rng > 0 && Math.min(pc.o, pc.c) - pc.l >= P.wick_frac * rng;
     }
@@ -205,7 +205,7 @@ function detectSignal(entry, zones, bias, atr15, diag) {
     }
     if (!(D.boxOk && poked && closedBack && wickOk)) continue;
 
-    const wickLvl = prominentWickLevel(entry.slice(0, -2), side, a,
+    const wickLvl = prominentWickLevel(entry.slice(0, -3), side, a,
                                        side === "sell" ? boxHi : boxLo);
     let sweepOk = true;
     if (wickLvl != null) {
@@ -519,7 +519,7 @@ function drawChart() {
     ctx.strokeStyle = "rgba(88,166,255,0.8)";
     ctx.setLineDash([5, 4]);
     ctx.lineWidth = devicePixelRatio;
-    const x0 = X(Math.max(0, candles.length - P.box_lookback - 2));
+    const x0 = X(Math.max(0, candles.length - P.box_lookback - 3));
     ctx.strokeRect(x0, Y(state.diag.boxHi), X(candles.length - 1) - x0, Y(state.diag.boxLo) - Y(state.diag.boxHi));
     ctx.setLineDash([]);
   }

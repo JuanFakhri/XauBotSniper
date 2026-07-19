@@ -38,9 +38,9 @@ DEFAULT_PARAMS = {
     "entry_tf": "5m",
     "atr_period": 14,
     "box_lookback": 10,       # jumlah candle pembentuk box kocokan
-    "box_max_atr": 1.6,       # tinggi box maksimal (x ATR entry-TF)
+    "box_max_atr": 2.0,       # tinggi box maksimal (x ATR entry-TF)
     "poke_min_atr": 0.05,     # minimal tusukan keluar box (x ATR)
-    "wick_frac": 0.45,        # jarum: wick >= 45% dari range candle
+    "wick_frac": 0.35,        # jarum: wick >= 35% dari range candle
     "sweep_lookback": 36,     # cari jarum menonjol sebelumnya (candle)
     "wick_prominence_atr": 0.5,
     "ema_period": 50,
@@ -48,11 +48,11 @@ DEFAULT_PARAMS = {
     "zone_k": 3,              # fractal pivot: k kiri & kanan
     "zone_lookback": 240,     # bar 15m/30m untuk membangun zona
     "zone_tol_pct": 0.0012,   # lebar cluster zona (0.12%)
-    "zone_near_atr": 0.9,     # jarak maksimal trigger ke zona (x ATR15)
-    "range_min_atr": 2.5,     # handgun: lebar range minimal (x ATR15)
+    "zone_near_atr": 1.2,     # jarak maksimal trigger ke zona (x ATR15)
+    "range_min_atr": 2.0,     # handgun: lebar range minimal (x ATR15)
     "sl_buf_atr": 0.25,
     "min_risk_atr": 0.3,      # skip bila SL terlalu rapat (spread makan profit)
-    "max_risk_atr": 2.0,      # skip bila jarak SL > 2 ATR (risiko tak terukur)
+    "max_risk_atr": 2.5,      # skip bila jarak SL terlalu jauh (tak terukur)
     "min_rr": 1.0,
     "max_rr": 4.0,
     "fallback_rr": 1.5,
@@ -236,8 +236,8 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS,
     bump("bars")
 
     c0 = entry_candles[-1]              # candle trigger (baru close)
-    c1 = entry_candles[-2]
-    box = entry_candles[-(params["box_lookback"] + 2):-2]
+    fake_win = entry_candles[-3:]       # jendela dorongan terakhir (3 candle)
+    box = entry_candles[-(params["box_lookback"] + 3):-3]
     box_hi = max(c["h"] for c in box)
     box_lo = min(c["l"] for c in box)
     box_ok = (box_hi - box_lo) <= params["box_max_atr"] * a
@@ -252,17 +252,17 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS,
 
         poke = params["poke_min_atr"] * a
         if side == "sell":
-            fake_ext = max(c0["h"], c1["h"])
+            fake_ext = max(c["h"] for c in fake_win)
             poked = fake_ext > box_hi + poke
             closed_back = c0["c"] < box_hi and c0["c"] < c0["o"]
-            pc = c0 if c0["h"] >= c1["h"] else c1
+            pc = max(fake_win, key=lambda c: c["h"])
             rng = pc["h"] - pc["l"]
             wick_ok = rng > 0 and (pc["h"] - max(pc["o"], pc["c"])) >= params["wick_frac"] * rng
         else:
-            fake_ext = min(c0["l"], c1["l"])
+            fake_ext = min(c["l"] for c in fake_win)
             poked = fake_ext < box_lo - poke
             closed_back = c0["c"] > box_lo and c0["c"] > c0["o"]
-            pc = c0 if c0["l"] <= c1["l"] else c1
+            pc = min(fake_win, key=lambda c: c["l"])
             rng = pc["h"] - pc["l"]
             wick_ok = rng > 0 and (min(pc["o"], pc["c"]) - pc["l"]) >= params["wick_frac"] * rng
 
@@ -279,7 +279,7 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS,
             continue
 
         # --- aturan jarum: liquidity lama harus sudah disapu
-        wick_lvl = _prominent_wick_level(entry_candles[:-2], side, a, params,
+        wick_lvl = _prominent_wick_level(entry_candles[:-3], side, a, params,
                                          box_hi if side == "sell" else box_lo)
         if wick_lvl is not None:
             if side == "sell" and fake_ext < wick_lvl - 0.02 * a:
