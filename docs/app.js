@@ -26,7 +26,20 @@ const P = {
   min_rr: 1.3,
   max_rr: 4.0,
   fallback_rr: 1.5,
+  max_cost_frac: 0.2,
+  cost_pct_side: 0.0001,
 };
+
+/* Jam market XAU/USD: ~Minggu 22:00 UTC s/d Jumat 21:00 UTC. */
+function isXauMarketOpen(tMs) {
+  const t = Math.floor(tMs / 1000);
+  const dow = (Math.floor(t / 86400) + 4) % 7;
+  const hod = Math.floor((t % 86400) / 3600);
+  if (dow === 6) return false;
+  if (dow === 5 && hod >= 21) return false;
+  if (dow === 0 && hod < 22) return false;
+  return true;
+}
 
 const HOSTS = ["https://data-api.binance.vision", "https://api.binance.com"];
 const SYMBOL = "PAXGUSDT";
@@ -170,6 +183,7 @@ function detectSignal(entry, zones, bias, atr15, diag) {
   if (!a || a <= 0 || !atr15) return { signal: null, diag: D };
 
   const c0 = entry[entry.length - 1];
+  if (!isXauMarketOpen(c0.t)) return { signal: null, diag: D };
   const fakeWin = entry.slice(-3);
   const box = entry.slice(-(P.box_lookback + 3), -3);
   const boxHi = Math.max(...box.map((c) => c.h));
@@ -238,6 +252,7 @@ function detectSignal(entry, zones, bias, atr15, diag) {
     if (side === "sell") { sl = fakeExt + P.sl_buf_atr * a; risk = sl - entryPx; }
     else { sl = fakeExt - P.sl_buf_atr * a; risk = entryPx - sl; }
     if (risk < P.min_risk_atr * a || risk > P.max_risk_atr * a) continue;
+    if (entryPx * P.cost_pct_side * 2 > P.max_cost_frac * risk) continue;
 
     let tp = null;
     const tgtZones = side === "sell" ? zones.sup : zones.res;

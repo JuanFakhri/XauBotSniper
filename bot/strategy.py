@@ -57,6 +57,7 @@ DEFAULT_PARAMS = {
     "max_rr": 4.0,
     "fallback_rr": 1.5,
     "max_hold_bars": 96,      # keluar paksa setelah 8 jam (bar 5m)
+    "max_cost_frac": 0.2,     # skip bila biaya round-trip > 20% risiko
     "risk_pct": 1.0,          # % ekuitas dirisikokan per trade (backtest)
     "cost_pct_side": 0.0001,  # biaya 0.01% per sisi (~spread XAUUSD)
 }
@@ -187,6 +188,24 @@ def nearest_zone(zones, price, side, max_dist=None):
     return best  # (jarak, zona) atau None
 
 
+def is_xau_market_open(t_ms):
+    """Jam market XAU/USD: ~Minggu 22:00 UTC s/d Jumat 21:00 UTC.
+
+    PAXG tetap diperdagangkan akhir pekan, tapi pergerakannya tipis dan tidak
+    mencerminkan XAUUSD — entry akhir pekan dilarang.
+    """
+    t = t_ms // 1000
+    dow = (t // 86400 + 4) % 7          # 0=Minggu .. 6=Sabtu (epoch = Kamis)
+    hod = (t % 86400) // 3600
+    if dow == 6:
+        return False                     # Sabtu
+    if dow == 5 and hod >= 21:
+        return False                     # Jumat malam
+    if dow == 0 and hod < 22:
+        return False                     # Minggu sebelum buka
+    return True
+
+
 # --------------------------------------------------- langkah 3: trigger 1m/5m
 
 def _prominent_wick_level(candles, side, atr_val, params, ref):
@@ -236,6 +255,8 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS,
     bump("bars")
 
     c0 = entry_candles[-1]              # candle trigger (baru close)
+    if not is_xau_market_open(c0["t"]):
+        return None                     # market XAU tutup (akhir pekan)
     fake_win = entry_candles[-3:]       # jendela dorongan terakhir (3 candle)
     box = entry_candles[-(params["box_lookback"] + 3):-3]
     box_hi = max(c["h"] for c in box)
@@ -320,6 +341,9 @@ def detect_signal(entry_candles, zones, bias, atr15, params=DEFAULT_PARAMS,
             risk = entry - sl
         if risk < params["min_risk_atr"] * a or risk > params["max_risk_atr"] * a:
             continue
+        cost = entry * params["cost_pct_side"] * 2
+        if cost > params["max_cost_frac"] * risk:
+            continue                    # spread terlalu dominan vs risiko
         bump("risk_ok")
 
         tp = None
