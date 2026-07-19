@@ -12,6 +12,8 @@ on:
         default: "365"
   schedule:
     - cron: "0 2 * * 0"   # tiap Minggu 02:00 UTC — segarkan hasil backtest
+  push:
+    paths: [".github/workflows/backtest.yml"]
 
 permissions:
   contents: write
@@ -32,7 +34,7 @@ jobs:
 
       - name: Jalankan backtest
         env:
-          BACKTEST_DAYS: ${{ github.event.inputs.days || '365' }}
+          BACKTEST_DAYS: ${{ github.event.inputs.days || '730' }}
         run: python -m bot.backtest
 
       - name: Commit hasil
