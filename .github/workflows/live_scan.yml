@@ -1,0 +1,41 @@
+name: Scan sinyal berkala
+
+# Snapshot sinyal terkini -> docs/data/live.json. Dashboard menghitung
+# sinyal live langsung di browser; snapshot ini hanya cadangan/arsip.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"   # tiap jam
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-scan
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Scan sinyal
+        run: python -m bot.live_scan
+
+      - name: Commit snapshot
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/data/live.json
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan."
+          else
+            git commit -m "data: snapshot sinyal live (otomatis) [skip ci]"
+            git pull --rebase origin ${{ github.ref_name }} || true
+            git push origin HEAD:${{ github.ref_name }}
+          fi

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XauBotSniper — Bot Sinyal Emas Multi-Timeframe</title>
+<meta name="description" content="Bot sinyal XAUUSD (proxy PAXG) strategi naked chart multi-timeframe: arah TF besar, zona S/R TF menengah, entry sniper di TF kecil.">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>🎯 XauBotSniper</h1>
+    <span class="sub">Emas (XAU/USD via PAXG) — strategi naked chart multi-timeframe</span>
+  </div>
+  <div class="price-box">
+    <div id="price" class="price">—</div>
+    <div id="price-meta" class="price-meta">memuat data…</div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="live">📡 Live</button>
+  <button class="tab" data-tab="backtest">📊 Backtest</button>
+  <button class="tab" data-tab="strategi">📖 Strategi</button>
+  <label class="notif"><input type="checkbox" id="notif-toggle"> Notifikasi</label>
+</nav>
+
+<main>
+<!-- ============================================================ LIVE -->
+<section id="tab-live" class="tab-page active">
+  <div id="conn-warning" class="warning hidden"></div>
+
+  <div class="grid">
+    <div class="card signal-card" id="signal-card">
+      <div class="card-title">SINYAL SAAT INI</div>
+      <div id="signal-status" class="signal-status wait">WAIT</div>
+      <div id="signal-detail" class="signal-detail">Menunggu setup ideal… bot hanya entry
+        saat pola kocokan + dorongan terakhir muncul di zona S/R searah tren besar.</div>
+      <div id="signal-levels" class="signal-levels hidden">
+        <div><span>Entry</span><b id="lv-entry">—</b></div>
+        <div><span>Stop Loss</span><b id="lv-sl">—</b></div>
+        <div><span>Take Profit</span><b id="lv-tp">—</b></div>
+        <div><span>Risk:Reward</span><b id="lv-rr">—</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">LANGKAH 1 — ARAH MARKET (TF BESAR)</div>
+      <div class="bias-row">
+        <div class="bias-item"><span>Daily</span><b id="bias-d1">—</b></div>
+        <div class="bias-item"><span>4 Jam</span><b id="bias-h4">—</b></div>
+        <div class="bias-item"><span>1 Jam</span><b id="bias-h1">—</b></div>
+      </div>
+      <div id="bias-summary" class="note">—</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">LANGKAH 2 — AREA POTENSIAL (15m / 30m)</div>
+      <div class="zone-row"><span class="zlabel res">Resistance terdekat</span><b id="zone-res">—</b></div>
+      <div class="zone-row"><span class="zlabel sup">Support terdekat</span><b id="zone-sup">—</b></div>
+      <div id="zone-note" class="note">Zona dibentuk dari cluster swing high/low 15m &amp; 30m.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">LANGKAH 3 — CHECKLIST ENTRY (TF KECIL)</div>
+      <ul class="checklist" id="checklist">
+        <li id="ck-box">⬜ Pola <b>kocokan</b> (box konsolidasi rapat)</li>
+        <li id="ck-poke">⬜ <b>Dorongan terakhir</b> / false break keluar box</li>
+        <li id="ck-wick">⬜ Candle <b>jarum</b> (wick panjang) menolak level</li>
+        <li id="ck-sweep">⬜ Jarum lama sudah <b>disapu</b> (liquidity diambil)</li>
+        <li id="ck-zone">⬜ Terjadi di <b>zona S/R</b> 15m/30m</li>
+        <li id="ck-bias">⬜ Searah <b>tren besar</b> (atau handgun saat ranging)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card chart-card">
+    <div class="chart-head">
+      <div class="tf-btns" id="tf-btns">
+        <button data-tf="1m">1m</button>
+        <button data-tf="5m" class="active">5m</button>
+        <button data-tf="15m">15m</button>
+        <button data-tf="1h">1H</button>
+        <button data-tf="4h">4H</button>
+        <button data-tf="1d">1D</button>
+      </div>
+      <div class="legend">
+        <span class="lg res">zona resistance</span>
+        <span class="lg sup">zona support</span>
+        <span class="lg box">box kocokan</span>
+      </div>
+    </div>
+    <canvas id="chart" height="380"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="card-title">RIWAYAT SINYAL (sesi browser ini)</div>
+    <table class="table" id="hist-table">
+      <thead><tr><th>Waktu (WIB)</th><th>TF</th><th>Arah</th><th>Mode</th>
+        <th>Entry</th><th>SL</th><th>TP</th><th>RR</th></tr></thead>
+      <tbody id="hist-body"><tr><td colspan="8" class="dim">Belum ada sinyal.</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ======================================================== BACKTEST -->
+<section id="tab-backtest" class="tab-page">
+  <div id="bt-missing" class="warning hidden">Hasil backtest belum tersedia.
+    Jalankan workflow <b>“Backtest strategi sniper”</b> di tab Actions repo GitHub,
+    hasilnya otomatis muncul di sini.</div>
+  <div id="bt-content" class="hidden">
+    <div class="stat-row" id="bt-stats"></div>
+    <div class="card chart-card">
+      <div class="card-title">KURVA EKUITAS (risiko 1% per trade, modal awal $1.000)</div>
+      <canvas id="equity-chart" height="260"></canvas>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="card-title">PER MODE</div><table class="table" id="bt-mode"></table></div>
+      <div class="card"><div class="card-title">PER ARAH</div><table class="table" id="bt-side"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-title">PER BULAN</div>
+      <div class="scroll-x"><table class="table" id="bt-monthly"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-title">TRADE TERAKHIR</div>
+      <div class="scroll-x"><table class="table" id="bt-trades"></table></div>
+    </div>
+    <div class="note" id="bt-meta"></div>
+  </div>
+</section>
+
+<!-- ======================================================== STRATEGI -->
+<section id="tab-strategi" class="tab-page">
+  <div class="card prose">
+    <h2>Strategi Naked Chart Multi-Timeframe (Sniper &amp; Handgun)</h2>
+    <p>Bot ini mengotomatiskan strategi scalping emas “naked chart” — tanpa indikator
+    berat, murni struktur harga di beberapa timeframe. Tiga langkahnya:</p>
+    <h3>1) Arah market — timeframe besar (1H, 4H, Daily, Weekly)</h3>
+    <p>Jangan melawan arus utama. Bot membaca tren dari posisi harga terhadap EMA50
+    beserta kemiringannya di Daily, 4H, dan 1H. Daily adalah bos; minimal satu TF
+    lain harus searah. Jika tren besar turun → bot hanya mencari peluang <b>SELL</b>.</p>
+    <h3>2) Area potensial — timeframe menengah (15m &amp; 30m)</h3>
+    <p>Swing high/low di 15m dan 30m dikelompokkan menjadi zona
+    <b>support/resistance</b>. Harga biasanya bereaksi di zona ini — entry hanya
+    dipertimbangkan saat harga menyentuh/berada sangat dekat zona.</p>
+    <h3>3) Eksekusi entry — timeframe kecil (1m &amp; 5m)</h3>
+    <p>Harga tidak bergerak dengan mudah. Sebelum meledak ke satu arah, market
+    biasanya membuat pola <b>“kocokan”</b> (konsolidasi rapat naik-turun untuk
+    mengambil liquidity/stop loss). Bot menunggu:</p>
+    <ul>
+      <li><b>Box kocokan</b>: range konsolidasi yang rapat (tinggi box &lt; 1.6×ATR).</li>
+      <li><b>Dorongan terakhir</b>: false break keluar box — tusukan yang gagal dan
+        close kembali ke dalam box.</li>
+      <li><b>Candle jarum</b>: candle penolakan dengan ekor panjang (wick ≥ 45% range).</li>
+      <li><b>Aturan jarum</b>: bila ada jarum menonjol sebelumnya yang belum
+        ditembus, bot <i>tidak</i> buru-buru entry — level itu biasanya disapu dulu
+        sebelum harga berbalik.</li>
+    </ul>
+    <h3>Mode Sniper vs Handgun</h3>
+    <p><b>Sniper</b> dipakai saat market trending: arah dari Daily, konfirmasi 4H/1H,
+    entry di 1m–15m searah tren. <b>Handgun</b> dipakai saat market ranging (TF besar
+    netral): fade di tepi range — sell di resistance, buy di support — dengan syarat
+    range cukup lebar (≥ 2.5×ATR15).</p>
+    <h3>Risk management (risiko terukur)</h3>
+    <ul>
+      <li><b>Stop loss</b> di atas/bawah titik false break + buffer 0.25×ATR.
+        Setup dengan jarak SL &gt; 2×ATR dilewati (risiko tak terukur).</li>
+      <li><b>Take profit</b> disiplin di zona S/R terdekat berikutnya — tidak
+        serakah, seperti prinsip “TP saat menembus S/R terdekat”. Minimal RR 1.0,
+        fallback 1.5R.</li>
+      <li><b>Timeout</b>: posisi scalping tidak ditahan lama — ditutup paksa
+        setelah ±8 jam.</li>
+    </ul>
+    <h3>Sumber data</h3>
+    <p>Harga memakai <b>PAXG/USDT</b> (PAX Gold, 1 token = 1 troy oz emas) sebagai
+    proxy XAU/USD karena datanya gratis, real-time, dan riwayatnya panjang.
+    Pergerakannya menempel harga spot emas.</p>
+    <p class="disclaimer">⚠️ <b>Disclaimer:</b> Ini alat edukasi/analisis, bukan saran
+    keuangan. Sinyal tidak menjamin profit. Trading emas/leverage berisiko tinggi —
+    selalu gunakan manajemen risiko dan uang yang siap hilang.</p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <span id="foot-status">—</span>
+  <span>XauBotSniper · data: Binance PAXG/USDT (proxy XAUUSD) · bukan saran keuangan</span>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

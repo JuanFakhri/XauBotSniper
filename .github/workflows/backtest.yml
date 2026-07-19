@@ -1,0 +1,49 @@
+name: Backtest strategi sniper
+
+# Backtest strategi multi-timeframe di riwayat PAXG/USDT (proxy XAUUSD).
+# Hasil ditulis ke docs/data/backtest.json dan tampil di tab Backtest
+# dashboard GitHub Pages.
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Berapa hari data historis (mis. 365, 730)"
+        required: false
+        default: "365"
+  schedule:
+    - cron: "0 2 * * 0"   # tiap Minggu 02:00 UTC — segarkan hasil backtest
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backtest
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Jalankan backtest
+        env:
+          BACKTEST_DAYS: ${{ github.event.inputs.days || '365' }}
+        run: python -m bot.backtest
+
+      - name: Commit hasil
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/data/backtest.json
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan."
+          else
+            git commit -m "data: hasil backtest strategi sniper (otomatis) [skip ci]"
+            git pull --rebase origin ${{ github.ref_name }} || true
+            git push origin HEAD:${{ github.ref_name }}
+          fi

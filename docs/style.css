@@ -1,0 +1,231 @@
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel2: #1c2129;
+  --border: #2d333b;
+  --text: #e6edf3;
+  --dim: #8b949e;
+  --green: #3fb950;
+  --red: #f85149;
+  --amber: #d29922;
+  --blue: #58a6ff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+h1 { font-size: 20px; }
+.sub { color: var(--dim); font-size: 12.5px; display: block; }
+.price-box { text-align: right; }
+.price { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.price.up { color: var(--green); }
+.price.down { color: var(--red); }
+.price-meta { color: var(--dim); font-size: 12px; }
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.tab {
+  background: transparent;
+  color: var(--dim);
+  border: 1px solid transparent;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.tab.active { background: var(--panel2); color: var(--text); border-color: var(--border); }
+.notif { margin-left: auto; color: var(--dim); font-size: 13px; cursor: pointer; }
+
+main { padding: 16px 18px 40px; max-width: 1180px; margin: 0 auto; }
+.tab-page { display: none; }
+.tab-page.active { display: block; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.grid .card { margin-bottom: 0; }
+.card-title {
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.signal-card { border-width: 2px; }
+.signal-status {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.signal-status.buy { color: var(--green); }
+.signal-status.sell { color: var(--red); }
+.signal-status.wait { color: var(--amber); }
+.signal-card.buy { border-color: var(--green); }
+.signal-card.sell { border-color: var(--red); }
+.signal-detail { color: var(--dim); font-size: 13px; margin-bottom: 10px; }
+.signal-levels div {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.signal-levels span { color: var(--dim); }
+
+.bias-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.bias-item {
+  flex: 1;
+  background: var(--panel2);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+}
+.bias-item span { display: block; color: var(--dim); font-size: 11.5px; }
+.bias-item b { font-size: 18px; }
+.bias-item b.up { color: var(--green); }
+.bias-item b.down { color: var(--red); }
+.bias-item b.flat { color: var(--amber); }
+
+.zone-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.zlabel.res { color: var(--red); }
+.zlabel.sup { color: var(--green); }
+.note { color: var(--dim); font-size: 12.5px; margin-top: 8px; }
+
+.checklist { list-style: none; }
+.checklist li { padding: 4px 0; color: var(--dim); font-size: 13.5px; }
+.checklist li.ok { color: var(--text); }
+.checklist li.ok::first-letter { color: var(--green); }
+
+.chart-card { padding-bottom: 8px; }
+.chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.tf-btns button {
+  background: var(--panel2);
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  margin-right: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.tf-btns button.active { color: var(--text); border-color: var(--blue); }
+.legend { font-size: 12px; color: var(--dim); display: flex; gap: 12px; }
+.lg::before { content: "■ "; }
+.lg.res::before { color: rgba(248, 81, 73, 0.6); }
+.lg.sup::before { color: rgba(63, 185, 80, 0.6); }
+.lg.box::before { color: rgba(88, 166, 255, 0.7); }
+canvas { width: 100%; display: block; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.table th, .table td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--border); }
+.table th:first-child, .table td:first-child { text-align: left; }
+.table th { color: var(--dim); font-weight: 600; }
+.table .buy { color: var(--green); }
+.table .sell { color: var(--red); }
+.table .pos { color: var(--green); }
+.table .neg { color: var(--red); }
+.dim { color: var(--dim); }
+.scroll-x { overflow-x: auto; }
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stat {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.stat .k { color: var(--dim); font-size: 11.5px; letter-spacing: 0.05em; }
+.stat .v { font-size: 22px; font-weight: 700; margin-top: 2px; }
+.stat .v.pos { color: var(--green); }
+.stat .v.neg { color: var(--red); }
+
+.warning {
+  background: rgba(210, 153, 34, 0.12);
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 13.5px;
+}
+.hidden { display: none !important; }
+
+.prose h2 { margin-bottom: 10px; }
+.prose h3 { margin: 16px 0 6px; color: var(--blue); font-size: 16px; }
+.prose p, .prose li { color: #c9d1d9; font-size: 14px; }
+.prose ul { padding-left: 20px; margin: 6px 0; }
+.disclaimer {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--amber);
+  border-radius: 10px;
+  background: rgba(210, 153, 34, 0.1);
+}
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  color: var(--dim);
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .price { font-size: 20px; }
+  .signal-status { font-size: 26px; }
+}
