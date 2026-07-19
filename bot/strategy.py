@@ -51,9 +51,9 @@ DEFAULT_PARAMS = {
     "zone_near_atr": 1.2,     # jarak maksimal trigger ke zona (x ATR15)
     "range_min_atr": 2.0,     # handgun: lebar range minimal (x ATR15)
     "sl_buf_atr": 0.25,
-    "min_risk_atr": 0.3,      # skip bila SL terlalu rapat (spread makan profit)
+    "min_risk_atr": 0.5,      # skip bila SL terlalu rapat (spread makan profit)
     "max_risk_atr": 2.5,      # skip bila jarak SL terlalu jauh (tak terukur)
-    "min_rr": 1.0,
+    "min_rr": 1.3,
     "max_rr": 4.0,
     "fallback_rr": 1.5,
     "max_hold_bars": 96,      # keluar paksa setelah 8 jam (bar 5m)

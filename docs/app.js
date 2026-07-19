@@ -21,9 +21,9 @@ const P = {
   zone_near_atr: 1.2,
   range_min_atr: 2.0,
   sl_buf_atr: 0.25,
-  min_risk_atr: 0.3,
+  min_risk_atr: 0.5,
   max_risk_atr: 2.5,
-  min_rr: 1.0,
+  min_rr: 1.3,
   max_rr: 4.0,
   fallback_rr: 1.5,
 };
